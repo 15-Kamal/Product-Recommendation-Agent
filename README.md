@@ -22,31 +22,6 @@ Built for the AI Agent Challenge — Product Recommendation Agent (Intermediate)
    preferences or behavior, or explicitly flagging cold-start picks as
    popularity-based.
 4. **Output:** shown in the terminal with explicit rank numbers.
-   Sample Output:
-   === Product Recommendation Agent ===
-   1. Type in your own preferences
-   2. Run all saved sample profiles (for testing)
-   Choose 1 or 2: 2
-   ============================================================
-   USER PROFILE: Budget Beth  (id: U1)
-   Preferences on file: {'categories': ['footwear'], 'price_range': [0, 60], 'tags': ['running', 'budget']}
-   ============================================================
-   RANKED RECOMMENDATIONS:
-     #1  CloudStride Cushion Shoes ($55.0)
-          Reason: We recommend the CloudStride Cushion Shoes because they are within your preferred price range and align with your 'running' and 'budget' tags, which you have specified in your preferences.
-   ============================================================
-   USER PROFILE: Loyal Leo  (id: U2)
-   Preferences on file: {'categories': [], 'tags': []}
-   ============================================================
-   RANKED RECOMMENDATIONS:
-     #1  AeroFit Running Shoes ($89.99)
-          Reason: Since you previously purchased and rated the 'CloudStride Cushion Shoes' highly, which are tagged for 'running', the 'AeroFit Running Shoes' are a great option as they also cater to runners and are 'lightweight' and 'breathable'.
-     #2  TrailBlazer Hiking Boots ($140.0)
-          Reason: Considering your strong positive engagement with footwear like 'P002', the 'TrailBlazer Hiking Boots' could appeal to your interest in durable and high-quality shoes for different activities.
-     #3  Zenith Wireless Headphones ($120.0)
-          Reason: Given your repeated purchases and high rating for 'P002', we recommend 'Zenith Wireless Headphones' to explore other popular products that are highly rated like your past purchase.
-     #4  Pulse Minimalist Smartwatch ($199.99)
-          Reason: Since you have shown a preference for highly-rated items like 'P002', the 'Pulse Minimalist Smartwatch' is a good recommendation due to its high rating and modern features.
 
 ## Project structure
 
