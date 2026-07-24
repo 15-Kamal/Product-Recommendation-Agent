@@ -23,6 +23,49 @@ Built for the AI Agent Challenge — Product Recommendation Agent (Intermediate)
    popularity-based.
 4. **Output:** shown in the terminal with explicit rank numbers.
 
+Sample Output
+```text
+=== Product Recommendation Agent ===
+1. Type in your own preferences
+2. Run all saved sample profiles (for testing)
+Choose 1 or 2: 2
+
+============================================================
+USER PROFILE: Budget Beth  (id: U1)
+Preferences on file:
+{
+  'categories': ['footwear'],
+  'price_range': [0, 60],
+  'tags': ['running', 'budget']
+}
+============================================================
+
+RANKED RECOMMENDATIONS:
+
+#1 CloudStride Cushion Shoes ($55.00)
+Reason:
+We recommend the CloudStride Cushion Shoes because they are within your preferred
+price range and align with your "running" and "budget" tags, which you have
+specified in your preferences.
+
+============================================================
+.....
+```
+
+### Recommendation Strategies Demonstrated
+
+- **Budget Beth** → Content-Based Filtering (price, category, tags)
+- **Loyal Leo** → Collaborative Filtering (purchase history)
+- **Tag-Driven Tia** → Content-Based Filtering (category + tags)
+- **New User Nick** → Cold Start Strategy (globally popular products)
+
+### Recommendation Strategies Demonstrated
+
+- **Budget Beth** → Content-Based Filtering (price, category, tags)
+- **Loyal Leo** → Collaborative Filtering (purchase history)
+- **Tag-Driven Tia** → Content-Based Filtering (category + tags)
+- **New User Nick** → Cold Start Strategy (globally popular products)
+
 ## Project structure
 
 ```
