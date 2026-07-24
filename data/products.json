@@ -1,0 +1,52 @@
+[
+  {
+    "id": "P001",
+    "name": "AeroFit Running Shoes",
+    "category": "footwear",
+    "price": 89.99,
+    "brand": "AeroFit",
+    "tags": ["running", "lightweight", "breathable", "budget"],
+    "rating": 4.6,
+    "description": "Lightweight running shoe with breathable mesh upper."
+  },
+  {
+    "id": "P002",
+    "name": "CloudStride Cushion Shoes",
+    "category": "footwear",
+    "price": 55.00,
+    "brand": "CloudStride",
+    "tags": ["running", "cushioned", "budget"],
+    "rating": 4.5,
+    "description": "Affordable cushioned running shoes for everyday daily training."
+  },
+  {
+    "id": "P003",
+    "name": "Zenith Wireless Headphones",
+    "category": "electronics",
+    "price": 120.00,
+    "brand": "Zenith",
+    "tags": ["wireless", "minimalist", "noise-canceling"],
+    "rating": 4.8,
+    "description": "Sleek minimalist wireless over-ear headphones with deep bass."
+  },
+  {
+    "id": "P004",
+    "name": "Pulse Minimalist Smartwatch",
+    "category": "electronics",
+    "price": 199.99,
+    "brand": "Pulse",
+    "tags": ["wireless", "minimalist", "fitness"],
+    "rating": 4.4,
+    "description": "Clean, minimalist smart wearable tracking health metrics wirelessly."
+  },
+  {
+    "id": "P005",
+    "name": "TrailBlazer Hiking Boots",
+    "category": "footwear",
+    "price": 140.00,
+    "brand": "TrailBlazer",
+    "tags": ["outdoor", "waterproof", "durable"],
+    "rating": 4.7,
+    "description": "Durable waterproof boots designed for harsh trail conditions."
+  }
+]
