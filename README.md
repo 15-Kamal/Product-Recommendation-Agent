@@ -145,4 +145,3 @@ of them touch the real API or your daily quota.
 - [x] 3–4 sample user profiles — `data/users.json`, including one cold-start
   case (U4)
 - [x] Rationale for every recommendation — enforced by the system prompt's
-  "ONE sentence reason... never generic" instruction on every item
