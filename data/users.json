@@ -1,16 +1,6 @@
 [
-  { "user_id": "U1", "name": "Budget Beth",
-    "preferences": {"categories": ["footwear"], "price_range": [0, 60], "tags": ["running", "budget"]},
-    "behavior": {"viewed": ["P001"], "purchased": [], "ratings": {}} },
-
-  { "user_id": "U2", "name": "Loyal Leo",
-    "preferences": {"categories": [], "tags": []},
-    "behavior": {"viewed": ["P002"], "purchased": ["P002"], "ratings": {"P002": 5}} },
-
-  { "user_id": "U3", "name": "Tag-Driven Tia",
-    "preferences": {"categories": ["electronics"], "price_range": [50, 300], "tags": ["wireless", "minimalist"]},
-    "behavior": {"viewed": [], "purchased": [], "ratings": {}} },
-
-  { "user_id": "U4", "name": "New User Nick",
-    "preferences": {}, "behavior": {"viewed": [], "purchased": [], "ratings": {}} }
+  { "user_id": "U1", "name": "Budget Beth", "preferences": {"categories": ["footwear"], "price_range": [0, 60], "tags": ["running", "budget"]}, "behavior": {} },
+  { "user_id": "U2", "name": "Loyal Leo", "preferences": {"categories": [], "tags": []}, "behavior": {"purchased": ["P002"]} },
+  { "user_id": "U3", "name": "Tag-Driven Tia", "preferences": {"categories": ["electronics"], "price_range": [50, 300], "tags": ["wireless", "minimalist"]}, "behavior": {} },
+  { "user_id": "U4", "name": "New User Nick", "preferences": {}, "behavior": {} }
 ]

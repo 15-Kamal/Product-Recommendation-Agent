@@ -1,52 +1,28 @@
 [
-  {
-    "id": "P001",
-    "name": "AeroFit Running Shoes",
-    "category": "footwear",
-    "price": 89.99,
-    "brand": "AeroFit",
-    "tags": ["running", "lightweight", "breathable", "budget"],
-    "rating": 4.6,
-    "description": "Lightweight running shoe with breathable mesh upper."
-  },
-  {
-    "id": "P002",
-    "name": "CloudStride Cushion Shoes",
-    "category": "footwear",
-    "price": 55.00,
-    "brand": "CloudStride",
-    "tags": ["running", "cushioned", "budget"],
-    "rating": 4.5,
-    "description": "Affordable cushioned running shoes for everyday daily training."
-  },
-  {
-    "id": "P003",
-    "name": "Zenith Wireless Headphones",
-    "category": "electronics",
-    "price": 120.00,
-    "brand": "Zenith",
-    "tags": ["wireless", "minimalist", "noise-canceling"],
-    "rating": 4.8,
-    "description": "Sleek minimalist wireless over-ear headphones with deep bass."
-  },
-  {
-    "id": "P004",
-    "name": "Pulse Minimalist Smartwatch",
-    "category": "electronics",
-    "price": 199.99,
-    "brand": "Pulse",
-    "tags": ["wireless", "minimalist", "fitness"],
-    "rating": 4.4,
-    "description": "Clean, minimalist smart wearable tracking health metrics wirelessly."
-  },
-  {
-    "id": "P005",
-    "name": "TrailBlazer Hiking Boots",
-    "category": "footwear",
-    "price": 140.00,
-    "brand": "TrailBlazer",
-    "tags": ["outdoor", "waterproof", "durable"],
-    "rating": 4.7,
-    "description": "Durable waterproof boots designed for harsh trail conditions."
-  }
+  {"id": "P001", "name": "AeroFit Running Shoes", "category": "footwear", "price": 89.99, "tags": ["running", "lightweight", "breathable", "budget"], "rating": 4.6},
+  {"id": "P002", "name": "CloudStride Cushion Shoes", "category": "footwear", "price": 55.00, "tags": ["running", "cushioned", "budget"], "rating": 4.5},
+  {"id": "P003", "name": "Zenith Wireless Headphones", "category": "electronics", "price": 120.00, "tags": ["wireless", "minimalist", "noise-canceling"], "rating": 4.8},
+  {"id": "P004", "name": "Pulse Minimalist Smartwatch", "category": "electronics", "price": 199.99, "tags": ["wireless", "minimalist", "fitness"], "rating": 4.4},
+  {"id": "P005", "name": "TrailBlazer Hiking Boots", "category": "footwear", "price": 140.00, "tags": ["outdoor", "waterproof", "durable"], "rating": 4.7},
+
+  {"id": "P006", "name": "Summit Trail Runners", "category": "footwear", "price": 110.00, "tags": ["hiking", "lightweight", "grip"], "rating": 4.5},
+  {"id": "P007", "name": "Classic Canvas Sneakers", "category": "footwear", "price": 45.00, "tags": ["casual", "budget", "everyday"], "rating": 4.2},
+
+  {"id": "P008", "name": "Momentum Fitness Tracker", "category": "electronics", "price": 79.99, "tags": ["fitness", "wireless", "budget"], "rating": 4.3},
+  {"id": "P009", "name": "EchoBeat Bluetooth Speaker", "category": "electronics", "price": 65.00, "tags": ["portable", "wireless", "outdoor"], "rating": 4.5},
+  {"id": "P010", "name": "AirBuds Pro Earbuds", "category": "electronics", "price": 149.99, "tags": ["wireless", "noise-canceling", "compact"], "rating": 4.7},
+
+  {"id": "P011", "name": "StormShield Running Jacket", "category": "apparel", "price": 95.00, "tags": ["waterproof", "running", "lightweight"], "rating": 4.4},
+  {"id": "P012", "name": "FlexFit Yoga Leggings", "category": "apparel", "price": 48.00, "tags": ["yoga", "breathable", "budget"], "rating": 4.6},
+  {"id": "P013", "name": "CoolCore Moisture-Wicking Tee", "category": "apparel", "price": 28.00, "tags": ["running", "breathable", "budget"], "rating": 4.3},
+  {"id": "P014", "name": "AlpinePeak Thermal Hoodie", "category": "apparel", "price": 72.00, "tags": ["outdoor", "warm", "durable"], "rating": 4.5},
+
+  {"id": "P015", "name": "ZenFlow Yoga Mat", "category": "fitness", "price": 32.00, "tags": ["yoga", "budget", "non-slip"], "rating": 4.6},
+  {"id": "P016", "name": "PowerBand Resistance Set", "category": "fitness", "price": 24.99, "tags": ["budget", "home-workout", "compact"], "rating": 4.4},
+  {"id": "P017", "name": "HydroFlask Steel Bottle", "category": "fitness", "price": 29.99, "tags": ["durable", "outdoor", "everyday"], "rating": 4.8},
+  {"id": "P018", "name": "BaseCamp 2-Person Tent", "category": "fitness", "price": 189.00, "tags": ["outdoor", "waterproof", "durable"], "rating": 4.5},
+
+  {"id": "P019", "name": "TrailPack 20L Backpack", "category": "accessories", "price": 68.00, "tags": ["outdoor", "durable", "everyday"], "rating": 4.6},
+  {"id": "P020", "name": "SolarCharge Power Bank", "category": "accessories", "price": 42.00, "tags": ["portable", "outdoor", "wireless"], "rating": 4.3},
+  {"id": "P021", "name": "FlexArmor Phone Case", "category": "accessories", "price": 22.00, "tags": ["budget", "everyday", "durable"], "rating": 4.1}
 ]

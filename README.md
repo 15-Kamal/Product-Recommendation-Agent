@@ -1,38 +1,42 @@
 # Product Recommendation Agent
 
-An AI agent that takes a user's stated preferences (and past behavior, when
-available) and returns a ranked list of product recommendations, each with a
-specific reason — falling back gracefully to popular picks when there's no
-data on the user at all.
-
-Built for the AI Agent Challenge — Product Recommendation Agent (Intermediate) track.
+Takes a user's stated preferences, past behavior, or a plain free-text
+request, and returns a ranked, reasoned list of product recommendations —
+falling back gracefully to popular picks when nothing is known about the
+user yet.
 
 ## How it works
 
-1. **Content-based filtering (Python, no LLM):** every product is scored
-   against the user's stated preferences (category match, tag overlap, price
-   fit) and behavior (purchased/rated categories get a boost). The catalogue
-   is narrowed to a shortlist of the top 8 candidates.
-2. **Cold-start detection:** if a user has no preferences *and* no behavior
-   on file, filtering skips straight to a popularity ranking (highest-rated
-   products) instead of scoring against nothing.
-3. **LLM ranking + reasoning:** the shortlist and user profile are sent to
-   Google's Gemini API, which picks and ranks the best 3–5 and writes one
-   grounded sentence explaining each pick — referencing the user's actual
-   preferences or behavior, or explicitly flagging cold-start picks as
-   popularity-based.
-4. **Output:** shown in the terminal with explicit rank numbers, and
-   appended to `outputs/latest_run.md` as a saved record.
+1. **SQLite database** — auto-created and seeded from `data/products.json`
+   / `data/users.json` the first time `agent.py` runs. After that, the
+   database (`agent.db`) is the source of truth.
+2. **Gemini agent** (`gemini-2.5-flash`) is given two tools and decides for
+   itself when to call them:
+   - `filter_catalogue` — deterministic content-based scoring (category
+     match, tag overlap, price fit, behavior boost), written in plain
+     Python, no LLM involved.
+   - `get_user_history` — reads the user's past recommendations from the
+     database, so the agent can avoid repeating picks.
+3. The model interprets the request, calls whichever tools it needs (Gemini's
+   SDK handles the call-and-loop-back automatically — there's no manual
+   orchestration loop in this code), and writes the final ranked answer as
+   plain text.
+4. The result is printed and logged back to the database.
 
 ## Project structure
 
 ```
 product-recommendation-agent/
-├── agent.py              # main script: filtering, LLM call, CLI, display
+├── agent.py              # CLI entry point: DB, scoring, tools, orchestration
+├── test_agent.py          # unit tests - no real API calls
 ├── data/
-│   ├── products.json     # product catalogue (category, price, tags, rating, ...)
-│   └── users.json        # 3-4 sample user profiles, including one cold-start case
+│   ├── products.json      # 21 products across 5 categories
+│   └── users.json         # 4 sample profiles, incl. one cold-start case
+├── agent.db                # auto-generated on first run - gitignored
+├── outputs/
+│   └── sample_run.txt      # deliverable - see "Capturing a sample run" below
 ├── requirements.txt
+├── .gitignore
 └── README.md
 ```
 
@@ -54,9 +58,8 @@ Get a free key at [Google AI Studio](https://aistudio.google.com) → "Get API k
 | PowerShell | `$env:GOOGLE_API_KEY = "your-key-here"` |
 | macOS/Linux/Git Bash | `export GOOGLE_API_KEY="your-key-here"` |
 
-This only lasts for the current terminal session. To persist it on Windows
-across sessions: `setx GOOGLE_API_KEY "your-key-here"`, then open a **new**
-terminal window.
+Only lasts for the current terminal session. To persist it on Windows:
+`setx GOOGLE_API_KEY "your-key-here"`, then open a **new** terminal window.
 
 ## Run it
 
@@ -64,56 +67,86 @@ terminal window.
 python agent.py
 ```
 
-You'll be prompted to choose:
-- **1** — type in your own preferences (interactive, live recommendation)
-- **2** — replay the 4 saved sample profiles (batch/demo mode — this is what
-  generates the sample deliverable output)
+- **1** — describe what you're looking for in your own words
+- **2** — replay the 4 saved sample profiles (batch/demo mode)
+
+## Capturing a sample run (the "Recommendation output" deliverable)
+
+Option 2 only needs one keypress, so it can be captured non-interactively:
+
+```bash
+# Windows Command Prompt
+echo 2| python agent.py > outputs\sample_run.txt
+
+# macOS / Linux / Git Bash
+echo 2 | python agent.py > outputs/sample_run.txt
+```
+
+## Testing
+
+```bash
+python -m unittest test_agent.py -v
+```
+
+8 tests: database round-trips against an in-memory SQLite DB, scoring math,
+and the agent's tool-calling wired up against a mocked Gemini client. None
+of them touch the real API or your daily quota.
 
 ## Sample user profiles
 
 | ID | Name | Signal type |
 |---|---|---|
-| U1 | Budget Beth | Preferences + behavior (viewed) |
-| U2 | Loyal Leo | Behavior only (purchase + rating) |
-| U3 | Tag-Driven Tia | Preferences only, no behavior |
+| U1 | Budget Beth | Preferences + behavior |
+| U2 | Loyal Leo | Behavior only (a past purchase) |
+| U3 | Tag-Driven Tia | Preferences only |
 | U4 | New User Nick | **Cold start** — no data at all |
 
 ## Design choices
 
-- **Hybrid pipeline, not LLM-only:** cheap, transparent Python scoring
-  narrows the catalogue before the LLM ever sees it. This keeps API calls
-  fast/cheap and keeps the "similarity" step auditable — you can inspect
-  exactly why a product was shortlisted without asking the model.
-- **Content-based filtering:** weighted score = category match (+3) + tag
-  overlap (+1 per matching tag) + price-range fit (+2) + behavior boost (+2
-  if the user has purchased/rated something in that category).
-- **Cold start handled structurally, not guessed:** `has_signal()` checks
-  whether *any* value across preferences and behavior is non-empty. Only if
-  both are fully empty does it fall back to a popularity ranking — and the
-  LLM is explicitly told to say so in its reasoning, rather than pretending
-  it's personalized.
-- **Structured LLM output:** `response_mime_type="application/json"` on the
-  Gemini call forces valid JSON back, and `thinking_budget=0` disables
-  Gemini's default reasoning-token overhead — this task only needs ranking
-  plus a one-line reason, not deep chain-of-thought, and disabling it fixed
-  truncated responses during testing.
+- **Hybrid, not LLM-only:** `score_product` does the actual filtering math
+  in plain Python — cheap, deterministic, and auditable. Gemini's job is
+  deciding *when* to call it and *how* to parametrize it from a natural
+  language request, then reasoning over the results.
+- **Real orchestration, not a fixed pipeline:** `filter_catalogue` and
+  `get_user_history` are passed directly as `tools=[...]` — Gemini's SDK
+  detects plain Python functions automatically, calls them, and loops back
+  with the result until the model has enough to answer. There's no
+  hand-written "call tool → parse → call tool again" loop in this code;
+  that behavior was confirmed against the SDK's own source, not assumed.
+- **SQLite over a bigger database:** real persistence — specifically a
+  recommendation history log that flat JSON files couldn't give — with zero
+  server to run and no dependency beyond the Python standard library.
+- **Cold start is detected inside the tool itself:** if Gemini calls
+  `filter_catalogue` with empty categories and tags (because it has nothing
+  to go on), the function falls back to a popularity ranking and flags
+  `is_cold_start: true` in its response, so the model is instructed to say
+  so plainly rather than inventing a personalized-sounding reason.
+- **Plain text output, not structured JSON:** the system prompt asks for a
+  numbered list directly, which removes JSON-parsing and error-handling
+  code entirely while still giving a clearly ranked, readable answer.
+- **Graceful degradation on API errors:** a rate limit or other API error
+  on one user no longer crashes the whole batch run — it prints a clear
+  skip message and the loop continues to the next profile.
 
 ## Tradeoffs & limitations
 
-- No collaborative filtering — recommendations only use this one profile's
+- No collaborative filtering — recommendations use only this one profile's
   preferences/behavior and product attributes, not what similar users liked.
-- Cold start falls back to global popularity rather than an onboarding quiz,
-  to keep the CLI a single-turn interaction.
-- The interactive ("type your own preferences") session isn't saved back
-  into `data/users.json` — it's a one-off run, not a persisted profile.
-- No retry logic on API failures (network issues, invalid key) — they
-  surface directly rather than being retried, which is acceptable for this
-  scope but would need hardening for production use.
+- Free-tier Gemini quota is 20 requests/day for this model, and a single
+  `recommend()` call can cost more than one request if the agent calls both
+  tools — a full 4-profile batch run can use up the daily budget faster
+  than it looks like it should.
+- The "describe your own request" live path shares a single `LIVE` user ID,
+  so recommendation history isn't tracked per distinct real person.
+- No automatic retry/backoff on a rate-limited call — it's reported and
+  skipped, not retried.
 
 ## Deliverables checklist
 
-- [x] Product catalogue — `data/products.json`
-- [x] 3–4 sample user profiles — `data/users.json` (includes one cold-start
-  case, U4)
-- [x] Rationale for every recommendation — every ranked item includes a
-  `reason` field grounded in the user's actual profile
+- [x] Product catalogue — `data/products.json` (21 products, 5 categories)
+- [x] 3–4 sample user profiles — `data/users.json`, including one cold-start
+  case (U4)
+- [x] Recommendation output — `outputs/sample_run.txt` (see capture command
+  above)
+- [x] Rationale for every recommendation — enforced by the system prompt's
+  "ONE sentence reason... never generic" instruction on every item

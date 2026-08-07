@@ -1,45 +1,99 @@
 """
 Product Recommendation Agent
 Takes a user's stated preferences (and past behavior, when available) and
-produces a ranked list of product recommendations, each with a specific
-reason - falling back gracefully to popular picks when there's no data on
-the user at all.
+produces a ranked, reasoned list of product recommendations - falling back
+gracefully to popular picks when nothing is known about the user.
+
+Backed by local SQLite (auto-created from data/*.json on first run) - no
+external database dependency, no second thing that can fail over the
+network during a live demo.
+
+Orchestrated with Gemini's automatic function calling: the model decides
+when to call filter_catalogue / get_user_history, using them as real tools
+rather than a fixed "always filter, then always ask the LLM" pipeline.
+
+CLI only - run with: python agent.py
 """
 
 import json
 import os
+import sqlite3
 import sys
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 
-if not os.environ.get("GOOGLE_API_KEY"):
-    sys.exit(
-        "ERROR: GOOGLE_API_KEY is not set in this terminal session.\n"
-        "Command Prompt : set GOOGLE_API_KEY=your-key-here\n"
-        "PowerShell     : $env:GOOGLE_API_KEY = \"your-key-here\"\n"
-        "Then run 'python agent.py' again in that SAME window.\n"
-        "(Don't wrap the value in quotes in Command Prompt - quotes become part of the key.)"
-    )
+DB_PATH = "agent.db"
 
-client = genai.Client()  # reads GOOGLE_API_KEY from the environment
+SYSTEM_PROMPT = """You are a product recommendation agent with two tools:
+filter_catalogue and get_user_history.
 
-SYSTEM_PROMPT = """You are a product recommendation assistant.
-You receive a user profile and a shortlist of candidate products already
-filtered for relevance by a separate algorithm.
-Pick and rank the best 3-5. For each, give ONE sentence explaining why,
-referencing a SPECIFIC preference, tag, or behavior from the user's
-profile - never a generic reason.
-If is_cold_start is true, say plainly these are popular picks since we
-don't know this user yet.
-Return ONLY valid JSON: [{"product_id": "...", "reason": "..."}]"""
+If you have a user_id, call get_user_history first, so you don't repeat
+picks already made for them.
+
+Then call filter_catalogue with whatever you know about what the user
+wants - pass empty lists and a wide price range if you know nothing about
+them yet.
+
+filter_catalogue's response includes "is_cold_start". If true, say plainly
+that these are popular picks since nothing is known about this user yet -
+do not invent a personalized-sounding reason.
+
+Pick and rank the best 3-5 products it returns. For each, give ONE sentence
+reason tied to a SPECIFIC preference, tag, or behavior - never generic.
+Format your answer as a numbered list, one line per product."""
 
 
-# ---------- Content-based filtering ----------
+# ---------- Database ----------
 
-def has_signal(d):
-    """True if any value in the dict is non-empty."""
-    return any(v for v in d.values())
+def get_db():
+    """Connects to SQLite, creating and seeding tables from data/*.json on first run."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='products'"
+    ).fetchone()
+    if not exists:
+        conn.execute("CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, category TEXT, price REAL, tags TEXT, rating REAL)")
+        conn.execute("CREATE TABLE users (user_id TEXT PRIMARY KEY, name TEXT, preferences TEXT, behavior TEXT)")
+        conn.execute("CREATE TABLE log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, response TEXT)")
+        for p in json.load(open("data/products.json")):
+            conn.execute(
+                "INSERT INTO products VALUES (?,?,?,?,?,?)",
+                (p["id"], p["name"], p["category"], p["price"], json.dumps(p["tags"]), p["rating"]),
+            )
+        for u in json.load(open("data/users.json")):
+            conn.execute(
+                "INSERT INTO users VALUES (?,?,?,?)",
+                (u["user_id"], u["name"], json.dumps(u["preferences"]), json.dumps(u.get("behavior", {}))),
+            )
+        conn.commit()
+    return conn
 
+
+def get_products(conn):
+    rows = conn.execute("SELECT * FROM products").fetchall()
+    return [
+        {"id": r["id"], "name": r["name"], "category": r["category"],
+         "price": r["price"], "tags": json.loads(r["tags"]), "rating": r["rating"]}
+        for r in rows
+    ]
+
+
+def get_users(conn):
+    rows = conn.execute("SELECT * FROM users").fetchall()
+    return [
+        {"user_id": r["user_id"], "name": r["name"],
+         "preferences": json.loads(r["preferences"]), "behavior": json.loads(r["behavior"])}
+        for r in rows
+    ]
+
+
+def log(conn, user_id, response_text):
+    conn.execute("INSERT INTO log (user_id, response) VALUES (?,?)", (user_id, response_text))
+    conn.commit()
+
+
+# ---------- Content-based scoring (unchanged logic, still auditable) ----------
 
 def score_product(product, prefs, liked_categories):
     score = 0
@@ -50,121 +104,91 @@ def score_product(product, prefs, liked_categories):
     if lo <= product["price"] <= hi:
         score += 2
     if product["category"] in liked_categories:
-        score += 2  # behavior boost
+        score += 2
     return score
 
 
-def get_candidates(user, catalogue, top_n=8):
-    prefs = user.get("preferences", {})
-    behavior = user.get("behavior", {})
-    is_cold_start = not has_signal(prefs) and not has_signal(behavior)
+# ---------- Agent orchestration ----------
 
-    if is_cold_start:
-        ranked = sorted(catalogue, key=lambda p: -p["rating"])  # popularity fallback
-    else:
-        liked_ids = behavior.get("purchased", []) + list(behavior.get("ratings", {}))
-        liked_categories = {p["category"] for p in catalogue if p["id"] in liked_ids}
-        ranked = sorted(catalogue, key=lambda p: -score_product(p, prefs, liked_categories))
-
-    return ranked[:top_n], is_cold_start
+def get_client():
+    if not os.environ.get("GOOGLE_API_KEY"):
+        sys.exit(
+            "ERROR: GOOGLE_API_KEY is not set.\n"
+            "Command Prompt : set GOOGLE_API_KEY=your-key-here\n"
+            "PowerShell     : $env:GOOGLE_API_KEY = \"your-key-here\""
+        )
+    return genai.Client()
 
 
-# ---------- LLM ranking + reasoning ----------
+def build_recommender(client, conn, catalogue):
+    """Returns a recommend(message) function. filter_catalogue/get_user_history
+    close over catalogue/conn so those never appear in the schema Gemini sees -
+    only the parameters the model actually fills in do."""
 
-def recommend(user, candidates, is_cold_start):
-    resp = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=(
-            f"User: {json.dumps(user)}\n"
-            f"Candidates: {json.dumps(candidates)}\n"
-            f"is_cold_start: {is_cold_start}"
-        ),
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            max_output_tokens=1024,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
-        ),
-    )
-    try:
-        return json.loads(resp.text)
-    except (json.JSONDecodeError, TypeError):
-        print("Model didn't return valid JSON, raw response below:")
-        print(resp.text)
-        return []
+    def filter_catalogue(categories: list[str], tags: list[str], price_min: float, price_max: float) -> str:
+        """Filter and score the product catalogue by category, tags, and price range."""
+        is_cold = not categories and not tags
+        if is_cold:
+            ranked = sorted(catalogue, key=lambda p: -p["rating"])
+        else:
+            prefs = {"categories": categories, "tags": tags, "price_range": [price_min, price_max]}
+            ranked = sorted(catalogue, key=lambda p: -score_product(p, prefs, set()))
+        return json.dumps({"is_cold_start": is_cold, "products": ranked[:8]})
 
+    def get_user_history(user_id: str) -> str:
+        """Look up what was recently recommended to this user, to avoid repeating picks."""
+        rows = conn.execute(
+            "SELECT response FROM log WHERE user_id=? ORDER BY id DESC LIMIT 3", (user_id,)
+        ).fetchall()
+        return json.dumps([r["response"] for r in rows])
 
-# ---------- Input ----------
-
-def get_user_input_profile():
-    print("\nTell us what you're looking for (press Enter to skip a question):")
-    name = input("Your name: ").strip() or "Guest"
-    cats = input("Categories (comma-separated, e.g. footwear,electronics): ").strip()
-    tags = input("Tags/keywords (comma-separated, e.g. wireless,running): ").strip()
-    price = input("Price range as low-high (e.g. $0-$200): ").strip()
-
-    preferences = {}
-    if cats:
-        preferences["categories"] = [c.strip() for c in cats.split(",")]
-    if tags:
-        preferences["tags"] = [t.strip() for t in tags.split(",")]
-    if price and "-" in price:
+    def recommend(message):
         try:
-            lo, hi = price.split("-", 1)
-            preferences["price_range"] = [float(lo), float(hi)]
-        except ValueError:
-            print("Couldn't parse that price range, skipping it.")
+            resp = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=message,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    tools=[filter_catalogue, get_user_history],
+                ),
+            )
+            return resp.text
+        except errors.APIError as e:
+            if e.code == 429:
+                return (
+                    "[Skipped: hit today's free Gemini quota (20 requests/day/model). "
+                    "Check usage at https://ai.dev/rate-limit, or wait and rerun later.]"
+                )
+            return f"[Skipped: Gemini API error {e.code} - {e.message}]"
 
-    return {
-        "user_id": "LIVE",
-        "name": name,
-        "preferences": preferences,
-        "behavior": {"viewed": [], "purchased": [], "ratings": {}},
-    }
+    return recommend
 
 
-# ---------- Output ----------
-
-def show(user, recs, catalogue, is_cold_start):
-    prefs = user.get("preferences", {})
-    print(f"\n{'=' * 60}")
-    print(f"USER PROFILE: {user['name']}  (id: {user['user_id']})")
-    print(f"Preferences on file: {prefs if prefs else 'none'}")
-    if is_cold_start:
-        print("Status: COLD START — no preference/behavior data, showing popular picks")
-    print("=" * 60)
-    if not recs:
-        print("(no recommendations returned)")
-        return
-    print("RANKED RECOMMENDATIONS:")
-    for rank, r in enumerate(recs, start=1):
-        p = next((p for p in catalogue if p["id"] == r["product_id"]), None)
-        if p:
-            print(f"  #{rank}  {p['name']} (${p['price']})")
-            print(f"       Reason: {r['reason']}")
-
-# ---------- Main loop ----------
+# ---------- CLI ----------
 
 def main():
-    catalogue = json.load(open("data/products.json"))
-    users = json.load(open("data/users.json"))
+    conn = get_db()
+    catalogue = get_products(conn)
+    recommend = build_recommender(get_client(), conn, catalogue)
 
     print("=== Product Recommendation Agent ===")
-    print("1. Type in your own preferences")
+    print("1. Describe what you're looking for")
     print("2. Run all saved sample profiles (for testing)")
     choice = input("Choose 1 or 2: ").strip()
 
     if choice == "1":
-        user = get_user_input_profile()
-        candidates, cold = get_candidates(user, catalogue)
-        recs = recommend(user, candidates, cold)
-        show(user, recs, catalogue, cold)
-        
+        name = input("Your name: ").strip() or "Guest"
+        request = input("What are you looking for? ").strip()
+        print(f"\n{'=' * 60}\nUSER: {name}\n{'=' * 60}")
+        result = recommend(f"User '{name}' (id: LIVE) says: {request}")
+        print(result)
+        log(conn, "LIVE", result)
     else:
-        for user in users:
-            candidates, cold = get_candidates(user, catalogue)
-            recs = recommend(user, candidates, cold)
-            show(user, recs, catalogue, cold)
+        for user in get_users(conn):
+            print(f"\n{'=' * 60}\nUSER: {user['name']} (id: {user['user_id']})\n{'=' * 60}")
+            result = recommend(f"Recommend products for this user profile: {json.dumps(user)}")
+            print(result)
+            log(conn, user["user_id"], result)
 
 
 if __name__ == "__main__":

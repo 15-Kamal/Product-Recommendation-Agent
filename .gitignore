@@ -1,6 +1,5 @@
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
 env/
@@ -8,3 +7,4 @@ env/
 .vscode/
 .idea/
 .DS_Store
+agent.db
