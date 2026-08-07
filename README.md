@@ -33,8 +33,6 @@ product-recommendation-agent/
 │   ├── products.json      # 21 products across 5 categories
 │   └── users.json         # 4 sample profiles, incl. one cold-start case
 ├── agent.db                # auto-generated on first run - gitignored
-├── outputs/
-│   └── sample_run.txt      # deliverable - see "Capturing a sample run" below
 ├── requirements.txt
 ├── .gitignore
 └── README.md
@@ -146,7 +144,5 @@ of them touch the real API or your daily quota.
 - [x] Product catalogue — `data/products.json` (21 products, 5 categories)
 - [x] 3–4 sample user profiles — `data/users.json`, including one cold-start
   case (U4)
-- [x] Recommendation output — `outputs/sample_run.txt` (see capture command
-  above)
 - [x] Rationale for every recommendation — enforced by the system prompt's
   "ONE sentence reason... never generic" instruction on every item
